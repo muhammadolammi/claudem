@@ -1,13 +1,16 @@
 import os
 import os.path as path
+from functions.helpers import isinsidewrkDIR
+from functions.helpers import resolve_dir
+
+ 
 
 def get_files_info(working_directory, directory=None):
     try:
-        main_dir = "./"
-        working_directory = path.abspath(path.expanduser(path.join(main_dir, working_directory)))
-        directory = path.abspath(path.expanduser(path.join(working_directory, directory)))
         
-        if not path.commonpath([working_directory]) == path.commonpath([working_directory, directory]):
+        working_directory, directory =  resolve_dir(working_directory, directory)
+        
+        if not isinsidewrkDIR(working_directory, directory):
             # print(f'Error: "{directory}" is outside the working directory')
             return f'Error: "{directory}" is outside the working directory'
 
@@ -37,6 +40,6 @@ def get_files_info(working_directory, directory=None):
         return return_str
 
     except Exception as e:
-        return f"ERROR: {e}"
+        return f"Error: {e}"
 
 
