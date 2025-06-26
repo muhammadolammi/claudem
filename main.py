@@ -26,3 +26,5 @@ user_prompt = args[1]
 generate_content(client, user_prompt, VERBOSE)
 
 
+
+

@@ -83,6 +83,8 @@ When a user asks a question or makes a request, make a function call plan. You c
 - Write or overwrite files
 
 All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+- You can always start with the get_files_info function first if you dont know where to start.
+- When asked to fix a bug instead of creating new files you are to find the responsible file for that error and fix.
 """
 
 
@@ -99,35 +101,90 @@ available_functions = types.Tool(
 
 
 
+# def generate_content(client, user_prompt, verbose):
+#     messages = [
+#     types.Content(role="user", parts=[types.Part(text=user_prompt)]),
+#         ]
+#     for i in range(20):
+#         generated_content = client.models.generate_content(
+#                     model="gemini-2.0-flash-001",
+            
+#                 contents=messages,
+#                 config=types.GenerateContentConfig(
+#                     tools=[available_functions],
+#                     system_instruction=system_prompt
+#                     ),
+#                 )
+        
+#         for candidate in generated_content.candidates:
+#             # append  candidate to messages to use in next iteration
+#             messages.append(candidate.content)
+#            #iterate through all the parts and call all functions if any.
+#             for part in candidate.content.parts:
+#                 function_call_part = part.function_call
+#                 if function_call_part:
+#                     function_call_result = call_function(function_call_part, verbose)
+#                     if not function_call_result.parts[0].function_response.response :
+#                         raise Exception("Fatal no response from function call")
+#                     # append the function  result to messages
+#                     messages.append(function_call_result)
+#                     if verbose:
+
+#                         print(f"-> {function_call_result.parts[0].function_response.response}")
+#         if generated_content.function_calls:
+#             continue
+#         else:
+#             print(generated_content.text)
+#             if verbose:
+#                 print(f"User prompt: {user_prompt}")
+#                 print(f"Prompt tokens: {generated_content.usage_metadata.prompt_token_count}") 
+#                 print(f"Response tokens: {generated_content.usage_metadata.candidates_token_count}") 
+
+#             break
+       
+
+
+
 def generate_content(client, user_prompt, verbose):
     messages = [
-    types.Content(role="user", parts=[types.Part(text=user_prompt)]),
-        ]
-    generated_content = client.models.generate_content(
-    model="gemini-2.0-flash-001",
-    
-    contents=messages,
-    config=types.GenerateContentConfig(
-        tools=[available_functions],
-        system_instruction=system_prompt
-        ),
-    )
+        types.Content(role="user", parts=[types.Part(text=user_prompt)]),
+    ]
+  
+    for i in range(20):
+        generated_content = client.models.generate_content(
+            model="gemini-2.0-flash-001",
+            contents=messages,
+            config=types.GenerateContentConfig(
+                tools=[available_functions],
+                system_instruction=system_prompt
+            ),
+        )
+        
+        new_parts = []
+        function_call_made = False
 
-    if generated_content.function_calls:
         for candidate in generated_content.candidates:
-            for part in candidate.content.parts:
-                function_call_part = part.function_call
-                if function_call_part:
-                    function_call_result = call_function(function_call_part, verbose)
-                    if not function_call_result.parts[0].function_response.response :
-                        raise Exception("Fatal no response from function call")
-                    if verbose:
-                        print(f"-> {function_call_result.parts[0].function_response.response}")
-        exit(0)
-    print(generated_content.text)
-    if verbose:
-        print(f"User prompt: {user_prompt}")
-        print(f"Prompt tokens: {generated_content.usage_metadata.prompt_token_count}") 
-        print(f"Response tokens: {generated_content.usage_metadata.candidates_token_count}") 
+            if candidate.content:
+                messages.append(candidate.content)  # Add assistant reply
+                # check if there are parts , some error were thrown when parts is None.
+                if candidate.content.parts:
+                    for part in candidate.content.parts:
+                        if hasattr(part, "function_call") and part.function_call:
+                            function_call_made = True
+                            function_result = call_function(part.function_call, verbose)
+                            messages.append(function_result)
+                            
+                            if verbose:
+                                print(f"-> {function_result.parts[0].function_response.response}")
+                        elif hasattr(part, "text"):
+                            new_parts.append(part.text)
+        
+        if not function_call_made:
+            final_output = "\n".join(new_parts)
+            print(final_output)
 
-
+            if verbose:
+                print(f"User prompt: {user_prompt}")
+                print(f"Prompt tokens: {generated_content.usage_metadata.prompt_token_count}") 
+                print(f"Response tokens: {generated_content.usage_metadata.candidates_token_count}") 
+            break
